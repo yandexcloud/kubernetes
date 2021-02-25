@@ -1,0 +1,141 @@
+kernel:
+  image: linuxkit/kernel:5.4.39
+  cmdline: 'console=ttyS0'
+init:
+- linuxkit/init:a68f9fa0c1d9dbfc9c23663749a0b7ac510cbe1c
+- linuxkit/runc:v0.8
+- containerskit/containerd:1.0.0
+- linuxkit/ca-certificates:v0.8
+onboot:
+- name: format
+  image: linuxkit/format:v0.8
+  command: ['/usr/bin/format', '-type', 'xfs', '-label', 'DATA', '-verbose', '/dev/vdb']
+- name: mount
+  image: linuxkit/mount:v0.8
+  command: ['/usr/bin/mountie', '/var/lib']
+- name: sysfs
+  image: linuxkit/sysfs:v0.8
+- name: dhcpcd
+  image: linuxkit/dhcpcd:v0.8
+  command: ['/sbin/dhcpcd', '--nobackground', '-f', '/dhcpcd.conf', '-1']
+- name: metadata
+  image: yandexcloud/metadata:1.0.0
+  binds:
+  - /run:/run:rw
+- name: userdata
+  image: containerskit/userdata:1.0.0
+  binds:
+  - /run/config:/run/config
+  - /var/lib/cni/net.d:/var/lib/cni/net.d
+  cwd: /run/config
+  command: ['/bin/userdata', '-path', '/run/config/userdata']
+  runtime:
+    mkdir:
+    - /var/lib/cni/net.d
+- name: hostname
+  image: containerskit/hostname:1.0.0
+  uts: host
+  binds:
+  - /run/config:/run/config
+  capabilities:
+  - CAP_SYS_ADMIN
+- name: sysctl
+  image: linuxkit/sysctl:v0.8
+  binds:
+  - /etc/sysctl.d/01-kubernetes.conf:/etc/sysctl.d/01-kubernetes.conf
+  readonly: false
+- name: cniplugins
+  image: containerskit/cniplugins:1.0.0
+  binds:
+  - /var/lib/cni/bin:/out
+  runtime:
+    mkdir:
+    - /var/lib/cni/bin
+services:
+- name: rngd
+  image: linuxkit/rngd:v0.8
+  cgroupsPath: systemreserved/rngd
+- name: ntpd
+  image: linuxkit/openntpd:v0.8
+  cgroupsPath: systemreserved/ntpd
+- name: sshd
+  image: linuxkit/sshd:666b4a1a323140aa1f332826164afba506abf597
+  cgroupsPath: systemreserved/sshd
+  binds:
+  - /run/config/ssh/authorized_keys:/root/.ssh/authorized_keys
+  - /etc/resolv.conf:/etc/resolv.conf
+  - /run:/run
+  - /tmp:/tmp
+  - /etc:/hostroot/etc
+  - /usr/bin/ctr:/usr/bin/ctr
+  - /usr/bin/runc:/usr/bin/runc
+  - /containers:/containers
+  - /var/log:/var/log
+  - /var/lib:/var/lib:rshared,rbind
+  - /dev:/dev
+  - /sys:/sys
+  - /var/lib/kubelet-plugins:/usr/libexec/kubernetes/kubelet-plugins:rshared,rbind
+  capabilities:
+  - all
+- name: kubelet
+  image: yandexcloud/kubelet:1.0.0
+  cgroupsPath: podruntime/kubelet
+  binds:
+  - /dev:/dev
+  - /etc/resolv.conf:/etc/resolv.conf
+  - /run:/run:rshared,rbind
+  - /var:/var:rshared,rbind
+  - /etc/kubernetes:/etc/kubernetes
+  - /run/config:/run/config
+  - /var/lib/cni/net.d:/etc/cni/net.d
+  - /var/lib/kubelet-plugins:/usr/libexec/kubernetes/kubelet-plugins:rshared,rbind
+  - /opt/cni:/opt/cni
+  mounts:
+  - type: bind
+    source: /sys/fs/cgroup
+    destination: /sys/fs/cgroup
+    options:
+    - rw
+    - rbind
+    - rshared
+    - nosuid
+    - noexec
+    - nodev
+    - relatime
+  capabilities:
+  - all
+  rootfsPropagation: shared
+  pid: host
+  runtime:
+    cgroups:
+    - systemreserved
+    - podruntime
+    - kubepods
+    mkdir:
+    - /var/lib/kubernetes
+    - /var/lib/kubelet-plugins
+    - /var/lib/cni/net.d
+- name: getty
+  image: linuxkit/getty:v0.8
+  env:
+  - INSECURE=true
+files:
+- path: /etc/sysctl.d/01-kubernetes.conf
+  contents: 'net.ipv4.ip_forward = 1'
+- path: /etc/os-release
+  contents: |
+    PRETTY_NAME="LinuxKit Kubernetes"
+- path: /usr/libexec/kubernetes/kubelet-plugins
+  symlink: /var/lib/kubelet-plugins
+- path: /etc/cni/net.d
+  symlink: /var/lib/cni/net.d
+- path: /opt/cni
+  symlink: /var/lib/cni
+- path: /etc/kubernetes
+  symlink: /var/lib/kubernetes
+- path: /etc/ca-certificates
+  directory: true
+- path: /usr/share/ca-certificates
+  directory: true
+- path: /usr/local/share/ca-certificates
+  directory: true

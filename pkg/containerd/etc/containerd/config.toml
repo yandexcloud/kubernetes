@@ -1,0 +1,21 @@
+version = 2
+
+state = "/run/containerd"
+root = "/var/lib/containerd"
+
+[grpc]
+  address = "/run/containerd/containerd.sock"
+  uid = 0
+  gid = 0
+
+[debug]
+  address = "/run/containerd/debug.sock"
+  level = "debug"
+
+[metrics]
+  address = ""
+
+[plugins."io.containerd.grpc.v1.cri"]
+  [plugins."io.containerd.grpc.v1.cri".cni]
+    bin_dir = "/var/lib/cni/bin"
+    conf_dir = "/var/lib/cni/net.d"

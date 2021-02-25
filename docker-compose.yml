@@ -1,0 +1,25 @@
+version: "3"
+
+services:
+  containerd:
+    image: containerskit/containerd:1.0.0
+    container_name: kube-containerd
+    build:
+      context: ./pkg/containerd
+  kubelet:
+    image: yandexcloud/kubelet:1.0.0
+    container_name: kube-kubelet
+    build:
+      context: ./pkg/kubelet
+      args:
+        KUBERNETES_VERSION: ${KUBERNETES_VERSION}
+        CRITOOLS_VERSION: ${CRITOOLS_VERSION}
+  cniplugins:
+    image: containerskit/cniplugins:1.0.0
+    container_name: kube-cniplugins
+    build:
+      context: ./pkg/cniplugins
+      args:
+        CNI_VERSION: ${CNI_VERSION}
+    volumes:
+    - ./cni:/out
