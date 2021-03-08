@@ -1,6 +1,6 @@
 set -e
 
-RETRYIN=10
+RETRYIN=30
 
 function init() {
     echo "[kubeadm-init] initializing cluster"

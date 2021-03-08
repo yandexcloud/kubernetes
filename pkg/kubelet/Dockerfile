@@ -67,6 +67,7 @@ RUN upx /out/crictl
 RUN upx /out/iglist
 
 FROM alpine:3.13 AS image
+RUN apk add openssh-client
 RUN mkdir -p /out/etc/apk && cp -r /etc/apk/* /out/etc/apk/
 RUN apk add --no-cache --initdb -p /out \
     alpine-baselayout \
@@ -99,6 +100,7 @@ COPY kubeadm-join.sh /out/usr/bin/kubeadm-join.sh
 
 FROM scratch
 COPY --from=image /out /
+COPY --from=image /usr/bin/ssh /usr/bin/ssh
 WORKDIR /
 ENV KUBECONFIG "/etc/kubernetes/admin.conf"
 ENV CONTAINER_RUNTIME_ENDPOINT "unix:///run/containerd/containerd.sock"

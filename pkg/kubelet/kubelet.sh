@@ -2,12 +2,29 @@
 
 cri_sock=/run/containerd/containerd.sock
 args_file=/run/config/kubelet/args
+token_cmd='ctr -n services.linuxkit t exec --exec-id e1 kubelet kubeadm token create --print-join-command'
+
+function set_bootstrap_token() {
+    echo "${0} [info] getting bootstrap token..."
+    until joincmd=$(ssh -o StrictHostKeyChecking=no $1 ${token_cmd}); do
+        sleep 10
+    done
+    echo "${0} [info] bootstrap token received"
+
+    token=$(echo $joincmd | awk '{print $5}')
+    ca_cert_hash=$(echo $joincmd | awk '{print $7}')
+
+    sed -i s/\$\{token\}/${token}/g $2
+    sed -i s/\$\{ca_cert_hash\}/${ca_cert_hash}/g $2
+}
 
 function bootstrap() {
     me=$(hostname)
     echo "${0} [info] me=${me}"
+
     all=$(iglist -folder ${FOLDER} -group ${GROUP} 2> /var/log/iglist.log)
     echo "${0} [info] all=${all}"
+
     m0=$(echo $all | sed 's/ /\n/g' | head -n 1)
     echo "${0} [info] m0=${m0}"
 
@@ -15,7 +32,7 @@ function bootstrap() {
         echo "${0} [error] variable 'all' is not set"
         return 1
     fi
-    
+
     if [[  -z $m0 ]]; then
         echo "${0} [error] variable 'm0' is not set"
         return 1
@@ -25,6 +42,7 @@ function bootstrap() {
         kubeadm-init.sh --config /run/config/kubeadm/init.yaml &
         await="/etc/kubernetes/kubelet.conf"
     else
+        set_bootstrap_token root@$m0 /run/config/kubeadm/join.yaml
         kubeadm-join.sh $m0:6443 --config /run/config/kubeadm/join.yaml &
         await="/etc/kubernetes/bootstrap-kubelet.conf"
     fi
@@ -34,15 +52,7 @@ function bootstrap() {
         sleep 5
     done
 
-    if [[ $n -eq 0 ]]; then
-        return 1
-    fi
-
-    echo "${0} [info]: ${await} has arrived" 2>&1
-
-    for l in $(cat /run/config/labels 2> /dev/null || true); do
-        kubectl label nodes $me $l
-    done
+    echo "${0} [info]: ${await} has arrived"
 }
 
 export $(cat /run/config/kubernetes)
@@ -50,12 +60,9 @@ export $(cat /run/config/kubernetes)
 if [[ -f "/etc/kubernetes/kubelet.conf" ]]; then
     echo "${0} [info]: kubelet already configured"
 else
-    until bootstrap ; do
-        echo "${0} [error]: bootstrap failed, retrying in 5sec"
-        sleep 5
-    done
+    echo "${0} [info]: starting bootstrap process"
+    bootstrap
 fi
-
 
 if [[ -f ${args_file} ]]; then
     kubelet_args=$(cat ${args_file})

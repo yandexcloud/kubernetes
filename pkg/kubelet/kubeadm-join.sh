@@ -1,10 +1,10 @@
 set -e
 
-RETRYIN=10
+RETRYIN=300
 
 function join() {
-    echo "[kubeadm-join] joining cluster"
-    kubeadm join $@
+    echo "[kubeadm-join] joining cluster ${@}"
+    kubeadm join $@ --v 8
 }
 
 until join $@; do

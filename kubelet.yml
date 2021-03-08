@@ -26,6 +26,7 @@ onboot:
   image: containerskit/userdata:1.0.0
   binds:
   - /run/config:/run/config
+  - /root:/root
   - /var/lib/cni/net.d:/var/lib/cni/net.d
   cwd: /run/config
   command: ['/bin/userdata', '-path', '/run/config/userdata']
@@ -62,7 +63,7 @@ services:
   image: linuxkit/sshd:666b4a1a323140aa1f332826164afba506abf597
   cgroupsPath: systemreserved/sshd
   binds:
-  - /run/config/ssh/authorized_keys:/root/.ssh/authorized_keys
+  - /run/config/ssh:/root/.ssh
   - /etc/resolv.conf:/etc/resolv.conf
   - /run:/run
   - /tmp:/tmp
@@ -84,9 +85,10 @@ services:
   - /dev:/dev
   - /etc/resolv.conf:/etc/resolv.conf
   - /run:/run:rshared,rbind
+  - /run/config/ssh/id_rsa:/root/.ssh/id_rsa
+  - /run/config/ssh/id_rsa.pub:/root/.ssh/id_rsa.pub
   - /var:/var:rshared,rbind
   - /etc/kubernetes:/etc/kubernetes
-  - /run/config:/run/config
   - /var/lib/cni/net.d:/etc/cni/net.d
   - /var/lib/kubelet-plugins:/usr/libexec/kubernetes/kubelet-plugins:rshared,rbind
   - /opt/cni:/opt/cni
